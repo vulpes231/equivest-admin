@@ -1,0 +1,329 @@
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { capitalize } from "lodash";
+import numeral, { Numeral } from "numeral";
+import React, { useEffect, useState } from "react";
+import { Card, Label, Input, Row, Col, Spinner } from "reactstrap";
+import { getUserVerifyInfo } from "../../services/users";
+import { devServer, liveServer } from "../../config";
+import {
+  failVerification,
+  resetVerification,
+  verifyuserAccount,
+} from "../../services/verification";
+import SuccessToast from "../../Components/Common/SuccessToast";
+import ErrorToast from "../../Components/Common/ErrorToast";
+import ApproveOptions from "./ApproveOptions";
+import ApproveAddressOptions from "./ApproveAddressOptions";
+import EditBalanceModal from "./EditBalanceModal";
+
+import { FiEdit } from "react-icons/fi";
+
+const Profile = ({ user, accounts }) => {
+  // useEffect(() => {
+  //   if (accounts) console.log(accounts);
+  // }, [accounts]);
+
+  const [error, setError] = useState("");
+
+  const { data: verifyInfo } = useQuery({
+    queryKey: ["verifyData"],
+    queryFn: () => getUserVerifyInfo(user?._id),
+    enabled: !!user,
+  });
+
+  const approveVerification = useMutation({
+    mutationFn: verifyuserAccount,
+    onError: (err) => setError(err.message),
+    onSuccess: () => {
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+    },
+  });
+
+  const rejectVerification = useMutation({
+    mutationFn: failVerification,
+    onError: (err) => setError(err.message),
+    onSuccess: () => {
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+    },
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: resetVerification,
+    onError: (err) => setError(err.message),
+    onSuccess: () => {
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+    },
+  });
+
+  // console.log(verifyInfo);
+  // console.log(user);
+
+  const acceptVerfication = () => {
+    if (!verifyInfo || !user) {
+      setError("Verification Info required!");
+      return;
+    }
+    const verifyId = verifyInfo._id;
+    const userId = user._id;
+    const data = { verifyId, userId };
+    approveVerification.mutate(data);
+  };
+
+  const rejectVerfication = () => {
+    if (!verifyInfo || !user) {
+      setError("Verification Info required!");
+      return;
+    }
+    const verifyId = verifyInfo._id;
+    const userId = user._id;
+    const data = { verifyId, userId };
+    rejectVerification.mutate(data);
+  };
+
+  const deleteVerification = () => {
+    if (!verifyInfo || !user) {
+      setError("Verification Info required!");
+      return;
+    }
+    const verifyId = verifyInfo._id;
+    const userId = user._id;
+    const data = { verifyId, userId };
+    cancelMutation.mutate(data);
+  };
+
+  const [showBalanceModal, setShowBalanceModal] = useState(false);
+  const [selectedAcct, setSelectedAcct] = useState("");
+
+  const brokerage =
+    accounts && accounts.find((acct) => acct.slug === "brokerage");
+  const auto = accounts && accounts.find((acct) => acct.slug === "auto");
+  const cash = accounts && accounts.find((acct) => acct.slug === "cash");
+
+  const KYC_STATUS = user && user.identityVerification.kycStatus;
+  const ACCOUNT_STATUS = user && user.accountStatus.status;
+
+  useEffect(() => {
+    if (error) {
+      const tmt = setTimeout(() => {
+        setError("");
+      }, 3000);
+      return () => clearTimeout(tmt);
+    }
+  }, [error]);
+
+  const handleAccountClick = (acct) => {
+    setSelectedAcct(acct);
+    setShowBalanceModal(true);
+  };
+
+  const closeBalanceModal = () => {
+    setSelectedAcct("");
+    setShowBalanceModal(false);
+  };
+
+  return (
+    <Card>
+      <Col>
+        <h4 className="p-4">Profile</h4>
+        <hr style={{ border: "1px solid #dedede" }} />
+        <div className="d-flex flex-column align-items-center">
+          <span className="fw-bold fs-20 text-capitalize">
+            {user?.personalInfo?.firstName} {user?.personalInfo?.lastName}
+          </span>
+          <span>@{user?.personalInfo?.username}</span>
+        </div>
+      </Col>
+      <Col className="px-3 py-3">
+        <Row className="mb-3">
+          <Col sm={7}>
+            <Label className="fs-18 fw-normal">Email Address</Label>
+            <Input
+              type="text"
+              readOnly
+              value={user?.contactInfo?.email}
+              className="fs-16"
+            />
+          </Col>
+          <Col sm={5} className="d-flex flex-column">
+            <span
+              style={{ textTransform: "uppercase" }}
+              className="fw-light fs-14 mt-4 d-flex align-items-center gap-2"
+            >
+              Cash{" "}
+              <span onClick={() => handleAccountClick(cash)}>
+                <FiEdit />{" "}
+              </span>
+            </span>
+            <span className="fw-bold fs-20">
+              {numeral(cash?.balance.available).format("$0,0.00")}
+            </span>
+          </Col>
+        </Row>
+        <Row className="mb-3">
+          <Col sm={7}>
+            <Label className="fs-18 fw-normal">Phone</Label>
+            <Input
+              type="text"
+              readOnly
+              value={user?.contactInfo?.phone}
+              className="fs-16"
+            />
+          </Col>
+          <Col sm={5} className="d-flex flex-column">
+            <span
+              style={{ textTransform: "uppercase" }}
+              className="fw-light fs-14 mt-4 d-flex align-items-center gap-2"
+            >
+              Brokerage{" "}
+              <span onClick={() => handleAccountClick(brokerage)}>
+                <FiEdit />{" "}
+              </span>
+            </span>
+            <span className="fw-bold fs-20">
+              {numeral(brokerage?.balance?.available).format("$0,0.00")}
+            </span>
+          </Col>
+        </Row>
+        <Row className="mb-3">
+          <Col sm={7}>
+            <Label className="fs-18 fw-normal">Country</Label>
+            <Input
+              type="text"
+              readOnly
+              value={user ? user?.contactInfo?.country?.name : null}
+              className="fs-16 text-capitalize"
+            />
+          </Col>
+          <Col sm={5} className="d-flex flex-column">
+            <span
+              style={{ textTransform: "uppercase" }}
+              className="fw-light fs-14 mt-4 d-flex align-items-center gap-2"
+            >
+              Auto
+              <span onClick={() => handleAccountClick(auto)}>
+                <FiEdit />{" "}
+              </span>
+            </span>
+            <span className="fw-bold fs-20">
+              {numeral(auto?.balance?.available).format("$0,0.00")}
+            </span>
+          </Col>
+        </Row>
+        <Row className="mb-3">
+          <Col sm={7}>
+            <Label className="fs-18 fw-normal">Currency</Label>
+            <Input
+              type="text"
+              readOnly
+              value={user?.currency?.name}
+              className="fs-16"
+            />
+          </Col>
+          {/* <Col sm={5} className="d-flex flex-column">
+            <span
+              style={{ textTransform: "uppercase" }}
+              className="fw-light fs-14 mt-4"
+            >
+              Savings Balance
+            </span>
+            <span className="fw-bold fs-20">$0.00</span>
+          </Col> */}
+        </Row>
+      </Col>
+      <Col className="px-3 mb-3 d-flex flex-column gap-3">
+        <div className="d-flex gap-3 align-items-center">
+          <span className="fs-18 fw-normal">Status</span>
+          <span
+            className={`${
+              ACCOUNT_STATUS === "active"
+                ? "bg-success-subtle text-success"
+                : ACCOUNT_STATUS === "active"
+                  ? "bg-danger-subtle text-danger"
+                  : ACCOUNT_STATUS === "review"
+                    ? "bg-warning-subtle text-warning"
+                    : null
+            } py-1 px-3 rounded fs-14 fw-medium`}
+          >
+            {user && capitalize(user?.accountStatus?.status)}
+          </span>
+        </div>
+        <div className="d-flex gap-3 align-items-center">
+          <span className="fs-18 fw-normal">KYC</span>
+          <span
+            className={`${
+              KYC_STATUS === "approved"
+                ? "bg-success-subtle text-success"
+                : KYC_STATUS === "rejected"
+                  ? "bg-danger-subtle text-danger"
+                  : KYC_STATUS === "pending"
+                    ? "bg-warning-subtle text-warning"
+                    : "bg-info-subtle text-info"
+            } py-1 px-3 rounded fs-14 fw-medium`}
+          >
+            {user && capitalize(user?.identityVerification?.kycStatus)}
+          </span>
+        </div>
+        <div className="d-flex gap-3 align-items-center mb-3">
+          <span className="fs-18 fw-normal">ID</span>
+          <span className="bg-secondary-subtle text-secondary py-1 px-3 fs-14 fw-medium text-capitalize">
+            {user?.identityVerification?.idType
+              ? user?.identityVerification?.idType
+              : "--000-000--000"}
+          </span>
+        </div>
+        <div>
+          <ApproveOptions
+            liveServer={liveServer}
+            acceptVerfication={acceptVerfication}
+            rejectVerfication={rejectVerfication}
+            deleteVerification={deleteVerification}
+            verifyInfo={verifyInfo}
+            approveMutation={approveVerification}
+            rejectMutation={rejectVerification}
+            cancelMutation={cancelMutation}
+            kycStatus={user?.identityVerification?.kycStatus}
+          />
+        </div>
+        <div>
+          <hr />
+          <h4>Contact Address Verification</h4>
+          <ApproveAddressOptions user={user} />
+        </div>
+      </Col>
+      {approveVerification.isSuccess && (
+        <SuccessToast
+          msg={"Verification approved."}
+          onClose={() => approveVerification.reset()}
+        />
+      )}
+      {rejectVerification.isSuccess && (
+        <SuccessToast
+          msg={"Verification rejected."}
+          onClose={() => rejectVerification.reset()}
+        />
+      )}
+      {cancelMutation.isSuccess && (
+        <SuccessToast
+          msg={"Verification cancelled."}
+          onClose={() => cancelMutation.reset()}
+        />
+      )}
+      {error && <ErrorToast errMsg={error} onClose={() => setError("")} />}
+      {showBalanceModal && (
+        <EditBalanceModal
+          isOpen={showBalanceModal}
+          handleToggle={closeBalanceModal}
+          walletData={selectedAcct}
+        />
+      )}
+    </Card>
+  );
+};
+
+export default Profile;
