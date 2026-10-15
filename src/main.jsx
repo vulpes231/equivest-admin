@@ -17,7 +17,7 @@ root.render(
   <QueryClientProvider client={queryClient}>
     <Provider store={store}>
       <React.Fragment>
-        <BrowserRouter basename="/admin">
+        <BrowserRouter>
           <App />
         </BrowserRouter>
       </React.Fragment>
@@ -26,3 +26,4 @@ root.render(
 );
 
 reportWebVitals();
+// basename="/admin"
